@@ -232,6 +232,7 @@ int do_lowlevel_init(void)
 #ifndef CONFIG_ITOP4412
 		tzpc_init();
 #endif
+	
 	}
 
 	return actions & DO_WAKEUP;

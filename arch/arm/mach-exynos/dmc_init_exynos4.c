@@ -26,6 +26,7 @@
 #include <config.h>
 #include <asm/arch/dmc.h>
 #include "common_setup.h"
+#include <debug_uart.h>
 
 #ifdef CONFIG_ITOP4412
 #include "itop4412_setup.h"
@@ -173,7 +174,7 @@ static void dmc_init(struct exynos4_dmc *dmc)
 void mem_ctrl_init(int reset)
 {
 	struct exynos4_dmc *dmc;
-
+	unsigned long addr_i = 0xa0000000;
 	/*
 	 * Async bridge configuration at CPU_core:
 	 * 1: half_sync
@@ -212,7 +213,9 @@ void mem_ctrl_init(int reset)
 	/* DREX0 */
 	dmc = (struct exynos4_dmc *)samsung_get_base_dmc_ctrl();
 	dmc_init(dmc);
+	
 	dmc = (struct exynos4_dmc *)(samsung_get_base_dmc_ctrl()
 					+ DMC_OFFSET);
 	dmc_init(dmc);
+	
 }

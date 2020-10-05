@@ -902,8 +902,16 @@ static const init_fnc_t init_sequence_f[] = {
 
 void board_init_f(ulong boot_flags)
 {
+	unsigned long *gpk1con = (unsigned long *) 0x11000060;
+	unsigned long *gpk1dat = (unsigned long *) 0x11000064;
+
 	gd->flags = boot_flags;
 	gd->have_console = 0;
+
+	/* 尝试点灯 */
+	*gpk1con = 0x1<<4;
+	*gpk1dat = (0x1 << 1);
+
 
 	if (initcall_run_list(init_sequence_f))
 		hang();

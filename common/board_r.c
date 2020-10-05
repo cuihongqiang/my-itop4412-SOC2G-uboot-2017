@@ -675,6 +675,9 @@ static int run_main_loop(void)
 #ifdef CONFIG_SANDBOX
 	sandbox_main_loop_init();
 #endif
+	run_command("usb start",CMD_FLAG_ENV);
+	run_command("usb reset",CMD_FLAG_ENV);
+	
 	/* main_loop() can return to retry autoboot, if so just run it again */
 	for (;;)
 		main_loop();

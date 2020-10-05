@@ -15,6 +15,7 @@
 #include <asm/arch/power.h>
 #include <asm/arch/spl.h>
 #include <asm/arch/spi.h>
+#include <debug_uart.h>
 
 #include "common_setup.h"
 #include "clock_init.h"
@@ -289,18 +290,22 @@ void board_init_f(unsigned long bootflag)
 {
 	__aligned(8) gd_t local_gd;
 	__attribute__((noreturn)) void (*uboot)(void);
-
+	
 	setup_global_data(&local_gd);
+	/* 进行点灯调试 */
 
+	
 	if (do_lowlevel_init())
 		power_exit_wakeup();
-
+	printascii("999999999999999999\n");
 	copy_uboot_to_ram();
-
+	printascii("101010101010101010\n");
 	/* Jump to U-Boot image */
 	uboot = (void *)CONFIG_SYS_TEXT_BASE;
+	printascii("166666666666666666\n");
 	(*uboot)();
 	/* Never returns Here */
+	printascii("100000000000000000\n");
 }
 
 /* Place Holders */
