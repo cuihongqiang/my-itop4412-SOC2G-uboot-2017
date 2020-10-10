@@ -103,6 +103,7 @@ static int dwmci_data_transfer(struct dwmci_host *host, struct mmc_data *data)
 	u32 fifo_depth = (((host->fifoth_val & RX_WMARK_MASK) >>
 			    RX_WMARK_SHIFT) + 1) * 2;
 
+
 	size = data->blocksize * data->blocks / 4;
 	if (data->flags == MMC_DATA_READ)
 		buf = (unsigned int *)data->dest;

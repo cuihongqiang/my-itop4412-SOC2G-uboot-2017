@@ -84,7 +84,15 @@ switch_to_hypervisor_ret:
 	bl	cpu_init_crit
 #endif
 #endif
-
+	/* 点灯 */
+/*
+ldr r0, =0x11000060
+ldr r1, = (0x1 << 4)
+str r1,[r0]
+ldr r0, =0x11000064
+ldr r1, = (0x1 << 1)
+str r1,[r0]
+*/
 	bl	_main
 
 /*------------------------------------------------------------------------------*/

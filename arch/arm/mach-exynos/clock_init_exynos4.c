@@ -45,13 +45,25 @@ void system_clock_init(void)
 {
 	struct exynos4_clock *clk =
 			(struct exynos4_clock *)samsung_get_base_clock();
-
+	/* 
+	 *
+	 *
+	 *
+	 *
+	 **/
 	writel(CLK_SRC_CPU_VAL, &clk->src_cpu);
 
 	sdelay(0x10000);
 
 	writel(CLK_SRC_TOP0_VAL, &clk->src_top0);
 	writel(CLK_SRC_TOP1_VAL, &clk->src_top1);
+	/* 
+	 *	CLK_SRC_DMC :
+	 *		MUX_PWI_SEL		[19:16] 	= XusbXTI 外部24mHZ的晶振 0x1
+	 *		MUX_DPHY_SEL	[8]   		= 选择SCLKMPLL	24mHZ
+	 *		MUX_DMC_BUS_SEL	[4]			= 选择SCLKMPLL  	24mHZ
+	 *		
+	 */
 	writel(CLK_SRC_DMC_VAL, &clk->src_dmc);
 	writel(CLK_SRC_LEFTBUS_VAL, &clk->src_leftbus);
 	writel(CLK_SRC_RIGHTBUS_VAL, &clk->src_rightbus);
@@ -66,6 +78,13 @@ void system_clock_init(void)
 
 	writel(CLK_DIV_CPU0_VAL, &clk->div_cpu0);
 	writel(CLK_DIV_CPU1_VAL, &clk->div_cpu1);
+	/*
+	 *	CLK_DIV_DMC0:
+	 *		
+	 *
+	 *
+	 *
+	 */
 	writel(CLK_DIV_DMC0_VAL, &clk->div_dmc0);
 	writel(CLK_DIV_DMC1_VAL, &clk->div_dmc1);
 	writel(CLK_DIV_LEFTBUS_VAL, &clk->div_leftbus);
@@ -316,7 +335,7 @@ void system_clock_init(void)
 	 */
 	/* CLK_DIV_FSYS0 */
 	clr = MIPIHSI_RATIO(15);
-	set = MIPIHSI_RATIO(3);
+	set = MIPIHSI_RATIO(0xf);
 
 	clrsetbits_le32(&clk->div_fsys0, clr, set);
 
@@ -327,17 +346,17 @@ void system_clock_init(void)
 	/**
 	 * For MOUTMMC0-3 = 800 MHz (MPLL)
 	 *
-	 * DOUTMMC0  = MOUTMMC0 / (MMC0_RATIO + 1)     = 100 MHz (7)
+	 * DOUTMMC0  = MOUTMMC0 / (MMC0_RATIO + 1)     = 200 MHz (7)
 	 * SCLK_MMC0 = DOUTMMC0 / (MMC0_PRE_RATIO + 1) = 50 MHz (1)
-	 * DOUTMMC1  = MOUTMMC1 / (MMC1_RATIO + 1)     = 100 MHz (7)
+	 * DOUTMMC1  = MOUTMMC1 / (MMC1_RATIO + 1)     = 200 MHz (7)
 	 * SCLK_MMC1 = DOUTMMC1 / (MMC1_PRE_RATIO + 1) = 50 MHz (1)
 	 */
 	/* CLK_DIV_FSYS1 */
 	clr = MMC0_RATIO(15) | MMC0_PRE_RATIO(255) | MMC1_RATIO(15) |
 	      MMC1_PRE_RATIO(255);
 	
-	set = MMC0_RATIO(7) | MMC0_PRE_RATIO(1) | MMC1_RATIO(7) |
-			  MMC1_PRE_RATIO(1);
+	set = MMC0_RATIO(3) | MMC0_PRE_RATIO(3) | MMC1_RATIO(3) |
+			  MMC1_PRE_RATIO(3);
 
 	clrsetbits_le32(&clk->div_fsys1, clr, set);
 
@@ -350,13 +369,13 @@ void system_clock_init(void)
 	 *
 	 * DOUTmmc3  = MOUTmmc3 / (MMC2_RATIO + 1)     = 100 MHz (7)
 	 * sclk_mmc3 = DOUTmmc3 / (MMC2_PRE_RATIO + 1) = 50 MHz (1)
-	 * DOUTmmc2  = MOUTmmc2 / (MMC3_RATIO + 1)     = 100 MHz (7)
+	 * DOUTmmc2  = MOUTmmc2 / (MMC3_RATIO + 1)     = 50 MHz (7)
 	 * sclk_mmc2 = DOUTmmc2 / (MMC3_PRE_RATIO + 1) = 50 MHz (1)
 	*/
 	/* CLK_DIV_FSYS2 */
 	clr = MMC2_RATIO(15) | MMC2_PRE_RATIO(255) | MMC3_RATIO(15) |
 	      MMC3_PRE_RATIO(255);
-	set = MMC2_RATIO(7) | MMC2_PRE_RATIO(1) | MMC3_RATIO(7) |
+	set = MMC2_RATIO(15) | MMC2_PRE_RATIO(0) | MMC3_RATIO(7) |
 	      MMC3_PRE_RATIO(1);
 
 	clrsetbits_le32(&clk->div_fsys2, clr, set);
@@ -373,7 +392,7 @@ void system_clock_init(void)
 	*/
 	/* CLK_DIV_FSYS3 */
 	clr = MMC4_RATIO(15) | MMC4_PRE_RATIO(255);
-	set = MMC4_RATIO(7) | MMC4_PRE_RATIO(1);
+	set = MMC4_RATIO(3) | MMC4_PRE_RATIO(0);
 
 	clrsetbits_le32(&clk->div_fsys3, clr, set);
 

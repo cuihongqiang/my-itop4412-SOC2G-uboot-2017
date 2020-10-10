@@ -364,7 +364,7 @@ static int sdhci_set_clock(struct mmc *mmc, unsigned int clock)
 		}
 		div >>= 1;
 	}
-
+	
 	if (host->ops && host->ops->set_clock)
 		host->ops->set_clock(host, div);
 
@@ -550,6 +550,7 @@ int sdhci_setup_cfg(struct mmc_config *cfg, struct sdhci_host *host,
 	/* Check whether the clock multiplier is supported or not */
 	if (SDHCI_GET_VERSION(host) >= SDHCI_SPEC_300) {
 		caps_1 = sdhci_readl(host, SDHCI_CAPABILITIES_1);
+		
 		host->clk_mul = (caps_1 & SDHCI_CLOCK_MUL_MASK) >>
 				SDHCI_CLOCK_MUL_SHIFT;
 	}

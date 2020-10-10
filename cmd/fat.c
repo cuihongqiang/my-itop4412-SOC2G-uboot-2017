@@ -19,6 +19,8 @@
 #include <fat.h>
 #include <fs.h>
 
+
+
 int do_fat_size(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	return do_size(cmdtp, flag, argc, argv, FS_TYPE_FAT);
@@ -150,3 +152,105 @@ U_BOOT_CMD(
 	"      to 'dev' on 'interface'"
 );
 #endif
+
+
+
+#define SECTOR_SIZE		512
+#define DOS_PART_MAGIC_OFFSET	0x1fe
+
+
+
+int do_fat_format(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+{
+	int dev = 0;
+	int part = 1;
+	char *ep;	
+	struct blk_desc *dev_desc = NULL;
+	disk_partition_t info = {};
+	
+	if (argc < 2) {
+		printf ("usage : fatformat <interface> <dev[:part]>\n");
+		return(0);
+	}
+
+	dev = (int)simple_strtoul (argv[2], &ep, 16);
+	
+	dev_desc = blk_get_dev(argv[1], dev);
+		if (dev_desc == NULL) {
+		puts ("\n ** Invalid boot device **\n");
+		return 1;
+	}
+	part_init(dev_desc);
+	
+	if (*ep) {
+		if (*ep != ':') {
+			puts ("\n ** Invalid boot device, use 'dev[:part]' **\n");
+			return 1;
+		}
+		part = (int)simple_strtoul(++ep, NULL, 16);
+		if (part > 4 || part <1) {
+			puts ("** Partition Number should be 1 ~ 4 **\n");
+		}
+	}
+
+
+	//part_get_info;
+
+
+
+	
+	printf(" part_type  : %x \n",dev_desc->part_type);
+
+	printf("Start format MMC%d partition%d ...\n", dev, part);
+	
+	//if (fat_format_device(dev_desc, part) != 0) {
+	//	printf("Format failure!!!\n");
+	//}
+	/* 开始格式化分区 */
+	unsigned char buffer[SECTOR_SIZE];
+	int fat_size;
+	/* check if we have a MBR (on floppies we have only a PBR) */
+	if (blk_dread(dev_desc, 0, 1, (ulong *) buffer) != 1) {
+		printf ("** Can't read from device**\n");
+		return 1;
+	}
+	if (buffer[DOS_PART_MAGIC_OFFSET] != 0x55 ||
+		buffer[DOS_PART_MAGIC_OFFSET + 1] != 0xaa) {
+		printf("** MBR is broken **\n");
+		/* no signature found */
+		return 1;
+	}
+	part_get_info(dev_desc, part, &info);
+	printf("sizeof(info.size) = %d",sizeof(info.size));
+	printf("part size : %u",info.size);
+	printf("part start : %u",info.start);
+	if(info.size == 0)
+	{
+		printf("** 无法获取分区信息 **\n");
+		return 1;
+	}
+	fat_size = write_pbr(dev_desc,&info);
+	if(fat_size < 0)
+		return 1;
+	if(write_reserved(dev_desc, &info) < 0)
+		return 1;
+	if(write_fat(dev_desc, &info, fat_size) < 0)
+		return 1;
+	printf("Partition%d format complete.\n", part);
+	
+	return 0;
+}
+
+U_BOOT_CMD(
+	fatformat, 3, 0, do_fat_format,
+	"fatformat - disk format by FAT32\n",
+	"fatformat <interface(only support mmc)> <dev:partition num>\n"
+	"	- format by FAT32 on 'interface'\n"
+);
+
+
+
+
+
+
+

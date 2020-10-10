@@ -870,7 +870,6 @@ static void exynos4_set_mmc_clk(int dev_index, unsigned int div)
 		clear_bit = MASK_PRE_RATIO(dev_index);
 		set_bit = SET_PRE_RATIO(dev_index, div);
 	}
-
 	clrsetbits_le32(addr, clear_bit, set_bit);
 }
 

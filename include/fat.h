@@ -9,9 +9,109 @@
 
 #ifndef _FAT_H_
 #define _FAT_H_
-
 #include <asm/byteorder.h>
 #include <fs.h>
+
+/* 对分区的支持 add by simon-plz */
+#define mk1(p, x)				\
+    (p) = (__u8)(x)
+
+#define mk2(p, x)				\
+    (p)[0] = (__u8)(x),			\
+    (p)[1] = (__u8)((x) >> 010)
+
+#define mk4(p, x)				\
+    (p)[0] = (__u8)(x),			\
+    (p)[1] = (__u8)((x) >> 010),		\
+    (p)[2] = (__u8)((x) >> 020),		\
+    (p)[3] = (__u8)((x) >> 030)
+
+#define argto1(arg, lo, msg)  argtou(arg, lo, 0xff, msg)
+#define argto2(arg, lo, msg)  argtou(arg, lo, 0xffff, msg)
+#define argto4(arg, lo, msg)  argtou(arg, lo, 0xffffffff, msg)
+#define argtox(arg, lo, msg)  argtou(arg, lo, UINT_MAX, msg)
+
+struct bs {
+    __u8 jmp[3];		/* bootstrap entry point */
+    __u8 oem[9];		/* OEM name and version */
+};
+
+struct bsbpb {
+    __u8 bps[2];		/* bytes per sector */
+    __u8 spc;			/* sectors per cluster */
+    __u8 res[2];		/* reserved sectors */
+    __u8 nft;			/* number of FATs */
+    __u8 rde[2];		/* root directory entries */
+    __u8 sec[2];		/* total sectors */
+    __u8 mid;			/* media descriptor */
+    __u8 spf[2];		/* sectors per FAT */
+    __u8 spt[2];		/* sectors per track */
+    __u8 hds[2];		/* drive heads */
+    __u8 hid[4];		/* hidden sectors */
+    __u8 bsec[6];		/* big total sectors */
+};
+/* For FAT32 */
+struct bsxbpb {
+    __u8 bspf[4];		/* big sectors per FAT */
+    __u8 xflg[2];		/* FAT control flags */
+    __u8 vers[2];		/* file system version */
+    __u8 rdcl[4];		/* root directory start cluster */
+    __u8 infs[2];		/* file system info sector */
+    __u8 bkbs[2];		/* backup boot sector */
+    __u8 rsvd[12];		/* reserved */
+};
+
+struct bsx {
+    __u8 drv;		/* drive number */
+    __u8 rsvd;		/* reserved */
+    __u8 sig;		/* extended boot signature */
+    __u8 volid[4];		/* volume ID number */
+    __u8 label[11]; 	/* volume label */
+    __u8 type[8];		/* file system type */
+};
+
+struct de {
+    __u8 namext[11];	/* name and extension */
+    __u8 attr;		/* attributes */
+    __u8 rsvd[10];		/* reserved */
+    __u8 time[2];		/* creation time */
+    __u8 date[2];		/* creation date */
+    __u8 clus[2];		/* starting cluster */
+    __u8 size[4];		/* size */
+};
+
+typedef unsigned int __u32;
+struct bpb {
+    __u32 bps;			/* bytes per sector */
+    __u32 spc;			/* sectors per cluster */
+    __u32 res;			/* reserved sectors */
+    __u32 nft;			/* number of FATs */
+    __u32 rde;			/* root directory entries */
+    __u32 sec;			/* total sectors */
+    __u32 mid;			/* media descriptor */
+    __u32 spf;			/* sectors per FAT */
+    __u32 spt;			/* sectors per track */
+    __u32 hds;			/* drive heads */
+    __u32 hid;			/* hidden sectors */
+    __u32 bsec; 		/* big total sectors */
+    __u32 bspf; 		/* big sectors per FAT */
+    __u32 rdcl; 		/* root directory start cluster */
+    __u32 infs; 		/* file system info sector */
+    __u32 bkbs; 		/* backup boot sector */
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #define CONFIG_SUPPORT_VFAT
 /* Maximum Long File Name length supported here is 128 UTF-16 code units */
@@ -204,4 +304,13 @@ int fat_opendir(const char *filename, struct fs_dir_stream **dirsp);
 int fat_readdir(struct fs_dir_stream *dirs, struct fs_dirent **dentp);
 void fat_closedir(struct fs_dir_stream *dirs);
 void fat_close(void);
+
+/* 以下是对一些分区表的支持add by simon */
+int write_pbr(struct blk_desc *dev_desc, disk_partition_t *info);
+
+int write_reserved(struct blk_desc *dev_desc, disk_partition_t *info);
+
+int write_fat(struct blk_desc  *dev_desc, disk_partition_t *info, int fat_size);
+
+
 #endif /* _FAT_H_ */

@@ -57,6 +57,55 @@ static int part_get_info_by_name_or_alias(struct blk_desc *dev_desc,
 	return ret;
 }
 
+
+
+
+#define BOOT_PARTITION 0x01
+#define USER_PARTITION 0x02
+
+
+struct emmc_fake_partitions_item{
+	char * part_name;
+	lbaint_t start;
+	lbaint_t size;
+	int 	loca;
+};
+
+static struct emmc_fake_partitions_item emmc_fake_partitions[]={{
+		.part_name = "bootloader",
+		.start	   = 0,
+		.size	   = 0x500,
+		.loca      = BOOT_PARTITION,
+	},{
+		/* 结束标志 */	
+	},
+
+	
+};
+
+#define EMMC_BLK_SIZE 512
+
+static int part_get_itop4412_emmc_info_by_name(const char *name, disk_partition_t *info)
+{
+	static struct emmc_fake_partitions_item *item = emmc_fake_partitions;
+	if(info == NULL)
+		return -1;
+	while(item->part_name){
+		if(!strcmp(item->part_name,name))
+		{
+			info->blksz = EMMC_BLK_SIZE;
+			info->start = item->start;
+			info->size  = item->size;
+			return item->loca;
+		}
+		item++;
+	}
+	return -1;
+}
+
+
+
+
 static lbaint_t fb_mmc_sparse_write(struct sparse_storage *info,
 		lbaint_t blk, lbaint_t blkcnt, const void *buffer)
 {
@@ -260,6 +309,55 @@ static int fb_mmc_update_zimage(struct blk_desc *dev_desc,
 }
 #endif
 
+static int emmc_boot_open(struct mmc *mmc)
+{
+	int err;
+	struct mmc_cmd cmd;
+
+	/* Boot ack enable, boot partition enable , boot partition access */
+	cmd.cmdidx = MMC_CMD_SWITCH;
+	cmd.resp_type = MMC_RSP_R1b;
+	cmd.cmdarg = ((3<<24)|(179<<16)|(((1<<6)|(1<<3)|(1<<0))<<8));
+
+
+	err = mmc_send_cmd(mmc, &cmd, NULL);
+	udelay(1000);
+	if (err)
+		return err;
+
+	/* 4bit transfer mode at booting time. */
+	cmd.cmdidx = MMC_CMD_SWITCH;
+	cmd.resp_type = MMC_RSP_R1b;
+	cmd.cmdarg = ((3<<24)|(177<<16)|(((1<<0)|(0<<2))<<8));//ly
+
+	err = mmc_send_cmd(mmc, &cmd, NULL);
+	udelay(1000);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+int emmc_boot_close(struct mmc *mmc)
+{
+	int err;
+	struct mmc_cmd cmd;
+
+	/* Boot ack enable, boot partition enable , boot partition access */
+	cmd.cmdidx = MMC_CMD_SWITCH;
+	cmd.resp_type = MMC_RSP_R1b;
+	cmd.cmdarg = ((3<<24)|(179<<16)|(((1<<6)|(1<<3)|(0<<0))<<8));
+
+	err = mmc_send_cmd(mmc, &cmd, NULL);
+	udelay(1000);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+
+
 void fb_mmc_flash_write(const char *cmd, void *download_buffer,
 			unsigned int download_bytes)
 {
@@ -321,23 +419,56 @@ void fb_mmc_flash_write(const char *cmd, void *download_buffer,
 	}
 #endif
 
+#ifndef CONFIG_ITOP4412
+	/* 寻找falsh,所指定的分区 */
 	if (part_get_info_by_name_or_alias(dev_desc, cmd, &info) < 0) {
 		pr_err("cannot find partition: '%s'\n", cmd);
 		fastboot_fail("cannot find partition");
 		return;
 	}
+#else	/* CONFIG_ITOP4412 */
+	/* 写死在emmc中的分区*/	
+
+	/*		主要对他们进行赋值
+	 *		info.blksz;	
+	 *		info.start;	
+	 *		info.size;	
+	 */
+	int error;
+	struct mmc * mmc_dev=NULL;
+	mmc_dev = find_mmc_device(CONFIG_FASTBOOT_FLASH_MMC_DEV);
+	if(mmc_dev == NULL)
+	{
+		printf("** 获取mmc_dev失败** \n");
+		return ;
+	}
+	
+	error = part_get_itop4412_emmc_info_by_name(cmd,&info);
+	if(error < 0)
+	{
+		printf("cannot find partition: '%s'\n", cmd);
+		fastboot_fail("cannot find partition");
+		return;
+	}
+	if(error == BOOT_PARTITION)
+		emmc_boot_open(mmc_dev);
+
+
+#endif /* CONFIG_ITOP4412 */
+
 
 	if (is_sparse_image(download_buffer)) {
+		/* 对于压缩的image */
 		struct fb_mmc_sparse sparse_priv;
 		struct sparse_storage sparse;
 
 		sparse_priv.dev_desc = dev_desc;
 
-		sparse.blksz = info.blksz;
-		sparse.start = info.start;
-		sparse.size = info.size;
-		sparse.write = fb_mmc_sparse_write;
-		sparse.reserve = fb_mmc_sparse_reserve;
+		sparse.blksz = 	info.blksz;					/* 块大小 */
+		sparse.start = 	info.start;					/* 分区开始块 */
+		sparse.size = 	info.size;					/* 分区大小 */
+		sparse.write = fb_mmc_sparse_write;			/* 写mmc的函数 */
+		sparse.reserve = fb_mmc_sparse_reserve;		/* 没懂 */
 
 		printf("Flashing sparse image at offset " LBAFU "\n",
 		       sparse.start);
@@ -346,9 +477,17 @@ void fb_mmc_flash_write(const char *cmd, void *download_buffer,
 		write_sparse_image(&sparse, cmd, download_buffer,
 				   download_bytes);
 	} else {
+		/* 对于未压缩的image */
 		write_raw_image(dev_desc, &info, cmd, download_buffer,
 				download_bytes);
 	}
+#ifdef CONFIG_ITOP4412
+	if(error == BOOT_PARTITION)
+		emmc_boot_close(mmc_dev);
+#endif
+
+	
+	
 }
 
 void fb_mmc_erase(const char *cmd)

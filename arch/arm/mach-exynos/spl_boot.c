@@ -32,6 +32,7 @@ enum index {
 };
 
 /* IROM Function Pointers Table */
+/* 这些都由固化的IROM来提供，与我们的代码无关 */
 u32 irom_ptr_table[] = {
 	[MMC_INDEX] = 0x02020030,	/* iROM Function Pointer-SDMMC boot */
 	[EMMC44_INDEX] = 0x02020044,	/* iROM Function Pointer-EMMC4.4 boot*/
@@ -195,26 +196,14 @@ void copy_uboot_to_ram(void)
 	u32 (*copy_bl2_from_emmc)(u32 nblock, u32 dst);
 	void (*end_bootop_from_emmc)(void);
 #endif
-#ifdef CONFIG_USB_BOOTING
-	int is_cr_z_set;
-	unsigned int sec_boot_check;
-
-	/*
-	 * Note that older hardware (before Exynos5800) does not expect any
-	 * arguments, but it does not hurt to pass them, so a common function
-	 * prototype is used.
-	 */
-	u32 (*usb_copy)(u32 num_of_block, u32 *dst);
-
-	/* Read iRAM location to check for secondary USB boot mode */
-	sec_boot_check = readl(EXYNOS_IRAM_SECONDARY_BASE);
-	if (sec_boot_check == EXYNOS_USB_SECONDARY_BOOT)
-		bootmode = BOOT_MODE_USB;
-#endif
 
 	if (bootmode == BOOT_MODE_OM)
 		bootmode = get_boot_mode();
 
+	printascii("bootmode:");
+	printhex4(bootmode);
+	printascii("\n");
+	
 	switch (bootmode) {
 #ifdef CONFIG_SPI_BOOTING
 	case BOOT_MODE_SERIAL:
@@ -223,9 +212,15 @@ void copy_uboot_to_ram(void)
 		break;
 #endif
 	case BOOT_MODE_SD:
+		printascii("\n进入sd卡启动模式...\n");
+
+		/* uboot 在sd中的块，512字节为一块 */
 		offset = BL2_START_OFFSET;
+		/* uboot 在sd卡中的大小 */
 		size = BL2_SIZE_BLOC_COUNT;
+		/* 获取固件中的拷贝函数，这段代码是无源码的，三星公司固化的 */
 		copy_bl2 = get_irom_func(MMC_INDEX);
+		printascii("获取函数指针\n");
 		break;
 #ifdef CONFIG_SUPPORT_EMMC_BOOT
 	case BOOT_MODE_EMMC:
@@ -233,13 +228,25 @@ void copy_uboot_to_ram(void)
 #ifndef CONFIG_ITOP4412
 		/* just for exynos5 can be call */
 		emmc_boot_clk_div_set();
-#endif
 		copy_bl2_from_emmc = get_irom_func(EMMC44_INDEX);
 		end_bootop_from_emmc = get_irom_func(EMMC44_END_INDEX);
-
+		
 		copy_bl2_from_emmc(BL2_SIZE_BLOC_COUNT, CONFIG_SYS_TEXT_BASE);
 		end_bootop_from_emmc();
-		break;
+		break;		
+#else  /* CONFIG_ITOP4412 */
+	case 0x28:
+	printascii("进入EMMC启动模式...\n");
+	copy_bl2_from_emmc = get_irom_func(EMMC44_INDEX);
+	end_bootop_from_emmc = get_irom_func(EMMC44_END_INDEX);
+	/* 为了一个uboot兼容多种启动模式,这里把uboot的参数也进行拷贝 */
+	copy_bl2_from_emmc(BL2_SIZE_BLOC_COUNT, CONFIG_SYS_TEXT_BASE-CONFIG_ENV_SIZE);
+	end_bootop_from_emmc();
+	break;
+	
+#endif /* CONFIG_ITOP4412 */
+
+
 #endif
 #ifdef CONFIG_USB_BOOTING
 	case BOOT_MODE_USB:
@@ -256,9 +263,10 @@ void copy_uboot_to_ram(void)
 	default:
 		break;
 	}
-
+	/* 进行函数指针的调用 */
 	if (copy_bl2)
 		copy_bl2(offset, size, CONFIG_SYS_TEXT_BASE);
+	printascii("拷贝uboot到sram成功....\n");
 }
 
 void memzero(void *s, size_t n)
@@ -293,19 +301,16 @@ void board_init_f(unsigned long bootflag)
 	
 	setup_global_data(&local_gd);
 	/* 进行点灯调试 */
-
+	
 	
 	if (do_lowlevel_init())
 		power_exit_wakeup();
-	printascii("999999999999999999\n");
+	printascii("开始拷贝Uboot\n");
 	copy_uboot_to_ram();
-	printascii("101010101010101010\n");
 	/* Jump to U-Boot image */
 	uboot = (void *)CONFIG_SYS_TEXT_BASE;
-	printascii("166666666666666666\n");
 	(*uboot)();
 	/* Never returns Here */
-	printascii("100000000000000000\n");
 }
 
 /* Place Holders */

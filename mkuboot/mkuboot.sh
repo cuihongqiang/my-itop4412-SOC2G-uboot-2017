@@ -24,7 +24,9 @@ echo "writting ..."
 if [ -z $1 ] ; then
 	sudo dd iflag=dsync oflag=dsync if=u-boot-iTOP-4412.bin of=/dev/sdb seek=1
 else
-	sudo dd iflag=dsync oflag=dsync if=u-boot-iTOP-4412.bin of=$1 seek=1
+	#直接烧写的情况
+	#sudo dd iflag=dsync oflag=dsync if=u-boot-iTOP-4412.bin of=$1 seek=1
+	sudo dd iflag=dsync oflag=dsync if=u-boot-iTOP-4412.bin of=$1 seek=0
 fi
 
 echo "writting success"

@@ -7,7 +7,7 @@ then
 	make itop4412_defconfig
 fi
 
-make -j$(nproc) ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+make -j$(nproc) ARCH=arm CROSS_COMPILE=/usr/local/arm/prebuilts-gcc-linux-x86-arm-gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
 
 cp u-boot.bin ./mkuboot/
 echo "copy u-boot.bin done."

@@ -6,6 +6,12 @@
 #
 
 # core
+
+# add by simon
+obj-y += cmd_mmc_fdisk.o
+
+
+
 ifndef CONFIG_SPL_BUILD
 obj-y += init/
 obj-y += main.o
