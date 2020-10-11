@@ -10,7 +10,7 @@ if [ ! -f env.bin ] ; then
 	exit 0
 fi
 
-cat E4412_N.bl1.bin itop4412-spl.bin env.bin u-boot.bin > u-boot-iTOP-4412.bin
+cat E4412_N.bl1.bin itop4412-spl.bin u-boot.bin > u-boot-iTOP-4412.bin
 
 if [ -f u-boot-iTOP-4412.bin ] ; then
 	echo "created u-boot-iTOP-4412.bin success!!!"

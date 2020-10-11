@@ -151,7 +151,7 @@ static int env_mmc_save(void)
 	u32	offset;
 	int	ret, copy = 0;
 	const char *errmsg;
-
+	printf("dev = %d\n",dev);
 	errmsg = init_mmc_for_env(mmc);
 	if (errmsg) {
 		printf("%s\n", errmsg);

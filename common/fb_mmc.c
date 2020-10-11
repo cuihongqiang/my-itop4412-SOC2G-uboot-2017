@@ -14,6 +14,7 @@
 #include <mmc.h>
 #include <div64.h>
 #include <linux/compat.h>
+#include <linux/string.h>
 #include <android_image.h>
 
 /*
@@ -60,48 +61,6 @@ static int part_get_info_by_name_or_alias(struct blk_desc *dev_desc,
 
 
 
-#define BOOT_PARTITION 0x01
-#define USER_PARTITION 0x02
-
-
-struct emmc_fake_partitions_item{
-	char * part_name;
-	lbaint_t start;
-	lbaint_t size;
-	int 	loca;
-};
-
-static struct emmc_fake_partitions_item emmc_fake_partitions[]={{
-		.part_name = "bootloader",
-		.start	   = 0,
-		.size	   = 0x500,
-		.loca      = BOOT_PARTITION,
-	},{
-		/* 结束标志 */	
-	},
-
-	
-};
-
-#define EMMC_BLK_SIZE 512
-
-static int part_get_itop4412_emmc_info_by_name(const char *name, disk_partition_t *info)
-{
-	static struct emmc_fake_partitions_item *item = emmc_fake_partitions;
-	if(info == NULL)
-		return -1;
-	while(item->part_name){
-		if(!strcmp(item->part_name,name))
-		{
-			info->blksz = EMMC_BLK_SIZE;
-			info->start = item->start;
-			info->size  = item->size;
-			return item->loca;
-		}
-		item++;
-	}
-	return -1;
-}
 
 
 
@@ -309,6 +268,22 @@ static int fb_mmc_update_zimage(struct blk_desc *dev_desc,
 }
 #endif
 
+
+
+
+/* add by simon */
+extern int mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
+			struct mmc_data *data);
+struct emmc_fake_partitions_item{
+	char * part_name;
+	lbaint_t start;
+	lbaint_t size;
+	int 	loca;
+};
+/* 在引导分区进行硬编码分区 */
+extern struct emmc_fake_partitions_item emmc_fake_partitions[];
+
+
 static int emmc_boot_open(struct mmc *mmc)
 {
 	int err;
@@ -338,7 +313,7 @@ static int emmc_boot_open(struct mmc *mmc)
 	return 0;
 }
 
-int emmc_boot_close(struct mmc *mmc)
+static int emmc_boot_close(struct mmc *mmc)
 {
 	int err;
 	struct mmc_cmd cmd;
@@ -355,6 +330,125 @@ int emmc_boot_close(struct mmc *mmc)
 
 	return 0;
 }
+
+#define EMMC_BLK_SIZE 512
+#define BOOT_PARTITION 0x01
+#define USER_PARTITION 0x02
+
+static int part_get_itop4412_emmc_info_by_name(const char *name, disk_partition_t *info)
+{
+	static struct emmc_fake_partitions_item *item = emmc_fake_partitions;
+	if(info == NULL)
+		return -1;
+	while(item->part_name){
+		if(!strcmp(item->part_name,name))
+		{
+			info->blksz = EMMC_BLK_SIZE;
+			info->start = item->start;
+			info->size  = item->size;
+			return item->loca;
+		}
+		item++;
+	}
+	return -1;
+}
+
+int do_flash_write(const char * part_name,unsigned long address)
+{
+	disk_partition_t info;
+	struct mmc *mmc_dev;	
+	struct blk_desc *dev_desc;
+	int part;
+	unsigned long n;
+	
+	dev_desc = blk_get_dev("mmc", CONFIG_FASTBOOT_FLASH_MMC_DEV);
+	mmc_dev = find_mmc_device(CONFIG_FASTBOOT_FLASH_MMC_DEV);
+	if(mmc_dev == NULL)
+	{
+		printf("** 获取mmc_dev失败** \n");
+		return -1;
+	}
+	part = part_get_itop4412_emmc_info_by_name(part_name,&info);
+	if(part < 0)
+	{
+		printf("没有这个分区\n");
+		return -1;
+	}
+	if(part == BOOT_PARTITION && emmc_boot_open(mmc_dev)!=0)
+	{
+		printf("打开引导分区失败\n");
+		return -1;
+	}
+
+	
+	printf("待烧写 %u blk\n",info.size);
+	n = blk_dwrite(dev_desc, info.start , info.size, (void*)address);
+	printf("已经烧写 %u blk\n",n);
+	
+	if(part == BOOT_PARTITION && emmc_boot_close(mmc_dev)!=0)
+	{
+		printf("关闭引导分区失败\n");
+		return -1;
+	}
+
+	if(n != info.size)
+	{
+		printf("** emmc写错误\n");
+		return -1;
+	}
+	printf("烧写成功....\n");
+	return 0;
+
+}
+
+
+int do_flash_read(const char * part_name,unsigned long address)
+{
+	disk_partition_t info;
+	struct mmc *mmc_dev;
+	int part;
+	unsigned long n;
+	mmc_dev = find_mmc_device(CONFIG_FASTBOOT_FLASH_MMC_DEV);
+	if(mmc_dev == NULL)
+	{
+		printf("** 获取mmc_dev失败** \n");
+		return -1;
+	}
+	part = part_get_itop4412_emmc_info_by_name(part_name,&info);
+	if(part < 0)
+	{
+		printf("没有这个分区\n");
+		return -1;
+	}
+	
+	if(part == BOOT_PARTITION && emmc_boot_open(mmc_dev)!=0)
+	{
+		printf("打开引导分区失败\n");
+		return -1;
+	}
+
+	printf("待读 %ublk\n",info.size);
+	
+	n = blk_dread(mmc_get_blk_desc(mmc_dev), info.start , info.size, (void*)address);
+	printf("已读 %ublk\n",n);
+
+	if(part == BOOT_PARTITION && emmc_boot_close(mmc_dev)!=0)
+	{
+		printf("关闭引导分区失败\n");
+		return -1;
+	}
+
+
+	if(n != info.size)
+	{
+		printf("** emmc读错误\n");
+		return -1;
+	}
+	printf("读成功.....\n");
+	return 0;
+
+}
+
 
 
 
@@ -450,9 +544,12 @@ void fb_mmc_flash_write(const char *cmd, void *download_buffer,
 		fastboot_fail("cannot find partition");
 		return;
 	}
-	if(error == BOOT_PARTITION)
-		emmc_boot_open(mmc_dev);
-
+	if(error == BOOT_PARTITION && emmc_boot_open(mmc_dev)!=0)
+	{
+		printf("打开引导分区失败\n");
+		return ;
+	}
+	printf("打开获取mmc %d \n",CONFIG_FASTBOOT_FLASH_MMC_DEV);
 
 #endif /* CONFIG_ITOP4412 */
 
@@ -482,8 +579,13 @@ void fb_mmc_flash_write(const char *cmd, void *download_buffer,
 				download_bytes);
 	}
 #ifdef CONFIG_ITOP4412
-	if(error == BOOT_PARTITION)
-		emmc_boot_close(mmc_dev);
+	if(error == BOOT_PARTITION && emmc_boot_close(mmc_dev)!=0)
+	{
+		printf("关闭引导分区失败\n");
+		return ;
+	}
+	
+	printf("关闭mmc %d \n",CONFIG_FASTBOOT_FLASH_MMC_DEV);
 #endif
 
 	

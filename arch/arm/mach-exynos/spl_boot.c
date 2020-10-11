@@ -239,8 +239,8 @@ void copy_uboot_to_ram(void)
 	printascii("进入EMMC启动模式...\n");
 	copy_bl2_from_emmc = get_irom_func(EMMC44_INDEX);
 	end_bootop_from_emmc = get_irom_func(EMMC44_END_INDEX);
-	/* 为了一个uboot兼容多种启动模式,这里把uboot的参数也进行拷贝 */
-	copy_bl2_from_emmc(BL2_SIZE_BLOC_COUNT, CONFIG_SYS_TEXT_BASE-CONFIG_ENV_SIZE);
+	
+	copy_bl2_from_emmc(BL2_SIZE_BLOC_COUNT, CONFIG_SYS_TEXT_BASE);
 	end_bootop_from_emmc();
 	break;
 	
